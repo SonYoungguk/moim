@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GatherSpot</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{
   --bg:#f6f7f5; --panel:#ffffff; --line:#dfe3dd; --fg:#1d2420; --muted:#66706a;
@@ -62,8 +61,8 @@ header h1{font-size:17px;margin:0;flex:1;letter-spacing:-.02em}
 .pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);display:grid;place-items:center}
 .pin span{transform:rotate(45deg);color:#fff;font-weight:700;font-size:11px}
 .pin.on{outline:3px solid #111;outline-offset:1px}
-.leaflet-popup-content{font:13px/1.5 inherit;margin:10px 12px}
-.leaflet-popup-content b{font-size:14px}
+#mapMsg{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);white-space:pre-line}
+#map{position:relative}
 @media (max-width:760px){
   body{flex-direction:column-reverse}
   #side{width:100%;height:58%;border-right:0;border-top:1px solid var(--line)}
@@ -127,7 +126,6 @@ header h1{font-size:17px;margin:0;flex:1;letter-spacing:-.02em}
 </aside>
 <div id="map"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const KEY = 'moim-map-v1';
 const CATS = [
@@ -164,27 +162,42 @@ function load(){
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(stores)); }catch(e){} }
 
-/* ---------- 지도 ---------- */
-const map = L.map('map', {zoomControl:true}).setView([37.5665,126.9780], 13);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 기여자'
-}).addTo(map);
-const layer = L.layerGroup().addTo(map);
-const markers = new Map();
 
+/* ---------- 지도 (네이버) ---------- */
+const NAVER_KEY = 'g96fpro8ys';
+let map = null, iw = null;
+const markers = new Map();
+const LL = (lat,lng) => new naver.maps.LatLng(lat,lng);
+
+function mapMessage(t){
+  let m = $('mapMsg');
+  if(!m){ m = document.createElement('div'); m.id = 'mapMsg'; $('map').appendChild(m); }
+  m.textContent = t;
+}
+function initMap(){
+  map = new naver.maps.Map('map', {center:LL(37.5665,126.9780), zoom:13, zoomControl:true,
+    zoomControlOptions:{position:naver.maps.Position.TOP_RIGHT}});
+  iw = new naver.maps.InfoWindow({content:'', maxWidth:280});
+  naver.maps.Event.addListener(map, 'click', e => {
+    if(!$('formPane').hidden) setDraft(e.coord, '지도에서 위치를 찍었습니다. 핀을 끌어 미세 조정할 수 있습니다.');
+    else iw.close();
+  });
+  window.addEventListener('resize', () => { if(map.autoResize) map.autoResize(); });
+  render(true);
+}
 function pinIcon(s, on){
-  return L.divIcon({className:'', iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-28],
-    html:`<div class="pin${on?' on':''}" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"><span>${s.cap>=40?'40+':s.cap}</span></div>`});
+  return {content:`<div class="pin${on?' on':''}" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"><span>${s.cap>=40?'40+':s.cap}</span></div>`,
+    size:new naver.maps.Size(30,30), anchor:new naver.maps.Point(15,30)};
 }
 function popupHtml(s){
   const q = encodeURIComponent(s.name.replace('[예시] ','') + (s.addr && !s.sample ? ' ' + s.addr : ''));
-  return `<b>${esc(s.name)}</b><br>${esc(s.cat)} · 인당 ${won(s.price)}<br>`
+  return `<div style="padding:10px 12px;font-size:13px;line-height:1.5;color:#1d2420"><b style="font-size:14px">${esc(s.name)}</b><br>${esc(s.cat)} · 인당 ${won(s.price)}<br>`
     + `단체 ${sizeLabel(s.cap)}${s.room?' · 룸 있음':''} · ${PARK[s.park]}`
     + (s.addr?`<br>${esc(s.addr)}`:'') + (s.tel?`<br>${esc(s.tel)}`:'')
     + (s.memo?`<br><span style="opacity:.75">${esc(s.memo)}</span>`:'')
-    + `<br><a href="https://map.naver.com/p/search/${q}" target="_blank" rel="noopener">네이버지도</a> · `
-    + `<a href="https://map.kakao.com/?q=${q}" target="_blank" rel="noopener">카카오맵</a>`;
+    + `<br><a href="https://map.naver.com/p/search/${q}" target="_blank" rel="noopener">네이버지도에서 보기</a></div>`;
 }
+function clearMarkers(){ markers.forEach(m => m.setMap(null)); markers.clear(); if(iw) iw.close(); }
 
 /* ---------- 필터 ---------- */
 function matches(s){
@@ -222,16 +235,26 @@ function render(fit){
     + (stores.some(s=>s.sample) ? '<span class="tag">예시 데이터 포함</span>' : '');
   $('btnClearSample').hidden = !stores.some(s=>s.sample);
 
-  layer.clearLayers(); markers.clear();
-  shown.forEach(s => {
-    const m = L.marker([s.lat,s.lng], {icon:pinIcon(s, s.id===selected), title:s.name}).bindPopup(popupHtml(s));
-    m.on('click', () => select(s.id, false));
-    m.addTo(layer); markers.set(s.id, m);
-  });
+  if(map){
+    const open = iw.getMap() ? selected : null;
+    clearMarkers();
+    shown.forEach(s => {
+      const m = new naver.maps.Marker({position:LL(s.lat,s.lng), map, title:s.name, icon:pinIcon(s, s.id===selected)});
+      naver.maps.Event.addListener(m, 'click', () => select(s.id, false, true));
+      markers.set(s.id, m);
+    });
+    if(open && markers.has(open)){ iw.setContent(popupHtml(stores.find(s=>s.id===open))); iw.open(map, markers.get(open)); }
+    if(fit && shown.length){
+      const b = new naver.maps.LatLngBounds(LL(shown[0].lat,shown[0].lng), LL(shown[0].lat,shown[0].lng));
+      shown.forEach(s => b.extend(LL(s.lat,s.lng)));
+      if(shown.length > 1) map.fitBounds(b, {top:60,right:60,bottom:60,left:60});
+      else { map.setCenter(LL(shown[0].lat,shown[0].lng)); map.setZoom(16); }
+    }
+  }
 
   const list = $('list'); list.textContent = '';
   if(!shown.length){
-    list.innerHTML = `<div class="empty">${stores.length ? '조건에 맞는 가게가 없습니다.<br>조건을 줄여 보세요.' : '등록된 가게가 없습니다.<br>오른쪽 위 “가게 등록”으로 첫 가게를 추가하세요.'}</div>`;
+    list.innerHTML = `<div class="empty">${stores.length ? '조건에 맞는 가게가 없습니다.<br>조건을 줄여 보세요.' : '등록된 가게가 없습니다.<br>위의 “가게 등록”으로 첫 가게를 추가하세요.'}</div>`;
   }
   shown.forEach(s => {
     const d = document.createElement('div');
@@ -250,15 +273,17 @@ function render(fit){
         else { x.dataset.sure = 1; x.textContent = '정말 삭제할까요?'; } };
       a.append(e,x); d.appendChild(a);
     }
-    d.onclick = () => select(s.id, true);
+    d.onclick = () => select(s.id, true, true);
     list.appendChild(d);
   });
-  if(fit && shown.length) map.fitBounds(L.latLngBounds(shown.map(s=>[s.lat,s.lng])).pad(0.2), {maxZoom:16});
 }
-function select(id, pan){
+function select(id, pan, popup){
   selected = id; render();
-  const m = markers.get(id);
-  if(m){ if(pan){ map.setView(m.getLatLng(), Math.max(map.getZoom(),15)); m.openPopup(); } }
+  const m = markers.get(id), s = stores.find(t => t.id === id);
+  if(map && m && s){
+    if(pan){ map.setCenter(m.getPosition()); if(map.getZoom() < 15) map.setZoom(15); }
+    if(popup){ iw.setContent(popupHtml(s)); iw.open(map, m); }
+  }
   const c = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
   if(c && !pan) c.scrollIntoView({block:'nearest'});
 }
@@ -267,50 +292,48 @@ function select(id, pan){
 CATS.forEach(([c]) => $('fCatSel').add(new Option(c,c)));
 [[4,'4명 이하(소규모)'],...SIZES.map(n=>[n, sizeLabel(n)+(n<40?' 까지':'')])].forEach(([v,l]) => $('fCap').add(new Option(l,v)));
 Object.entries(PARK).forEach(([k,l]) => $('fParkSel').add(new Option(l,k)));
+const DEFAULT_MSG = '“위치 찾기”로 주소를 찾거나, 지도를 직접 눌러 위치를 찍으세요. 핀은 끌어서 옮길 수 있습니다.';
 
-function setDraft(latlng, msg){
-  draft = latlng;
+function setDraft(coord, msg){
+  draft = {lat:coord.lat(), lng:coord.lng()};
   if(!draftMarker){
-    draftMarker = L.marker(latlng, {draggable:true, zIndexOffset:1000}).addTo(map);
-    draftMarker.on('dragend', () => setDraft(draftMarker.getLatLng(), '위치를 옮겼습니다.'));
-  } else draftMarker.setLatLng(latlng);
-  $('locMsg').className = 'ok'; $('locMsg').textContent = msg || '위치가 지정되었습니다. 핀을 끌어 미세 조정할 수 있습니다.';
+    draftMarker = new naver.maps.Marker({position:coord, map, draggable:true, zIndex:1000});
+    naver.maps.Event.addListener(draftMarker, 'dragend', () => setDraft(draftMarker.getPosition(), '위치를 옮겼습니다.'));
+  } else draftMarker.setPosition(coord);
+  $('locMsg').className = 'ok'; $('locMsg').textContent = msg || '위치가 지정되었습니다.';
 }
 function openForm(s){
+  if(!map){ $('count').innerHTML = '<span style="color:var(--bad)">지도가 뜨지 않아 가게를 등록할 수 없습니다.</span>'; return; }
   editing = s ? s.id : null;
   $('formTitle').textContent = s ? '가게 수정' : '가게 등록';
   $('fName').value = s?.name || ''; $('fAddr').value = s?.addr || '';
   $('fCatSel').value = s?.cat || '한식'; $('fCap').value = s?.cap || 10;
   $('fParkSel').value = s?.park || 'ok'; $('fPrice').value = s?.price ?? '';
   $('fRoom').checked = !!s?.room; $('fTel').value = s?.tel || ''; $('fMemo').value = s?.memo || '';
-  $('locMsg').className = ''; $('locMsg').textContent = '주소로 찾거나, 지도를 직접 눌러 위치를 찍으세요. 핀은 끌어서 옮길 수 있습니다.';
-  draft = null;
-  if(s){ setDraft(L.latLng(s.lat,s.lng), '현재 위치입니다. 지도를 누르거나 핀을 끌어 바꿀 수 있습니다.'); map.setView([s.lat,s.lng], 16); }
-  $('browse').style.display = 'none'; $('formPane').hidden = false; layer.remove();
+  $('locMsg').className = ''; $('locMsg').textContent = DEFAULT_MSG;
+  draft = null; clearMarkers();
+  if(s){ setDraft(LL(s.lat,s.lng), '현재 위치입니다. 지도를 누르거나 핀을 끌어 바꿀 수 있습니다.'); map.setCenter(LL(s.lat,s.lng)); map.setZoom(16); }
+  $('browse').style.display = 'none'; $('formPane').hidden = false;
   $('fName').focus();
 }
 function closeForm(){
-  if(draftMarker){ draftMarker.remove(); draftMarker = null; }
+  if(draftMarker){ draftMarker.setMap(null); draftMarker = null; }
   draft = null; editing = null;
-  $('formPane').hidden = true; $('browse').style.display = 'flex'; layer.addTo(map);
+  $('formPane').hidden = true; $('browse').style.display = 'flex';
 }
-map.on('click', e => { if(!$('formPane').hidden) setDraft(e.latlng, '지도에서 위치를 찍었습니다. 핀을 끌어 미세 조정할 수 있습니다.'); });
-
-$('btnGeo').onclick = async () => {
-  const q = $('fAddr').value.trim() || $('fName').value.trim();
-  if(!q){ $('locMsg').className='err'; $('locMsg').textContent='주소나 가게 이름을 먼저 입력하세요.'; return; }
+$('btnGeo').onclick = () => {
+  const q = $('fAddr').value.trim();
+  if(!q){ $('locMsg').className='err'; $('locMsg').textContent='주소를 먼저 입력하세요. (예: 세종대로 110)'; return; }
+  if(!naver.maps.Service){ $('locMsg').className='err'; $('locMsg').textContent='주소 검색 기능을 불러오지 못했습니다. 지도를 직접 눌러 위치를 찍으세요.'; return; }
   $('locMsg').className=''; $('locMsg').textContent='위치를 찾는 중…';
-  try{
-    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kr&accept-language=ko&q=' + encodeURIComponent(q));
-    const j = await r.json();
-    if(!j.length) throw 0;
-    const ll = L.latLng(+j[0].lat, +j[0].lon);
-    setDraft(ll, '찾은 위치: ' + j[0].display_name + ' — 정확하지 않으면 핀을 끌어 옮기세요.');
-    map.setView(ll, 17);
-  }catch(e){
-    $('locMsg').className='err';
-    $('locMsg').textContent='주소로 위치를 찾지 못했습니다. 동 이름까지만 입력해 다시 찾거나, 지도를 직접 눌러 찍으세요.';
-  }
+  naver.maps.Service.geocode({query:q}, (status, res) => {
+    const a = status === naver.maps.Service.Status.OK && res && res.v2 && res.v2.addresses && res.v2.addresses[0];
+    if(!a){ $('locMsg').className='err';
+      $('locMsg').textContent='주소로 위치를 찾지 못했습니다. 도로명 주소나 지번 주소로 다시 입력하거나, 지도를 직접 눌러 찍으세요. (가게 이름으로는 찾을 수 없습니다)'; return; }
+    const c = LL(+a.y, +a.x);
+    setDraft(c, '찾은 위치: ' + (a.roadAddress || a.jibunAddress || q) + ' — 정확하지 않으면 핀을 끌어 옮기세요.');
+    map.setCenter(c); map.setZoom(17);
+  });
 };
 $('formPane').onsubmit = e => {
   e.preventDefault();
@@ -335,7 +358,7 @@ $('btnClearSample').onclick = () => { stores = stores.filter(s => !s.sample); se
 $('btnExport').onclick = () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(stores, null, 2)], {type:'application/json'}));
-  a.download = '모임장소-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+  a.download = 'gatherspot-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $('btnImport').onclick = () => $('fileIn').click();
@@ -350,10 +373,25 @@ $('fileIn').onchange = async e => {
   }catch(err){ $('count').innerHTML = '<span style="color:var(--bad)">가져오기 실패: 이 프로그램에서 내보낸 JSON 파일인지 확인하세요.</span>'; }
   e.target.value = '';
 };
-
 $('q').oninput = e => { F.q = e.target.value.trim(); render(); };
-render(true);
-setTimeout(() => map.invalidateSize(), 100);
+
+/* ---------- 네이버 지도 불러오기 ---------- */
+render();
+(function loadNaver(){
+  // 키 종류에 따라 파라미터 이름이 다르므로, 인증에 실패하면 다른 이름으로 한 번 더 시도합니다.
+  let legacy = false; try{ legacy = sessionStorage.getItem('gs-legacy') === '1'; }catch(e){}
+  window.navermap_authFailure = () => {
+    let tried = false; try{ tried = sessionStorage.getItem('gs-legacy') === '1'; }catch(e){ tried = true; }
+    if(!tried){ try{ sessionStorage.setItem('gs-legacy','1'); }catch(e){} location.reload(); return; }
+    map = null; $('map').textContent = '';
+    mapMessage('네이버 지도 인증에 실패했습니다.\n네이버 클라우드 콘솔에서 Web 서비스 URL에 http://' + location.hostname + ' 이 등록되어 있는지,\nDynamic Map이 선택되어 있는지 확인하세요.');
+  };
+  const sc = document.createElement('script');
+  sc.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?' + (legacy ? 'ncpClientId' : 'ncpKeyId') + '=' + NAVER_KEY + '&submodules=geocoder';
+  sc.onload = () => { try{ initMap(); }catch(e){ mapMessage('지도를 시작하지 못했습니다: ' + e.message); } };
+  sc.onerror = () => mapMessage('네이버 지도를 불러오지 못했습니다.\n인터넷 연결을 확인한 뒤 새로고침하세요.');
+  document.head.appendChild(sc);
+})();
 </script>
 </body>
 </html>
