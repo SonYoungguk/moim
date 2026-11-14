@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GatherSpot</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f6f7f5; --panel:#ffffff; --line:#dfe3dd; --fg:#1d2420; --muted:#66706a;
+  --accent:#1f6f54; --accent-fg:#ffffff; --chip:#eef1ec; --warn:#b4541a; --bad:#a8324a; --good:#1f6f54;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141816; --panel:#1c211e; --line:#2f3732; --fg:#e8ece8; --muted:#9aa59e;
+  --accent:#4fb38f; --accent-fg:#0d1512; --chip:#262d29; --warn:#e39a5c; --bad:#e2788d; --good:#4fb38f; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{font:14px/1.5 "Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;background:var(--bg);color:var(--fg);display:flex}
+button,input,select,textarea{font:inherit;color:inherit}
+#side{width:380px;flex:none;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);min-height:0}
+#map{flex:1;min-width:0;height:100%}
+header{padding:14px 16px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0;flex:1;letter-spacing:-.02em}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 10px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+.btn.small{padding:3px 8px;font-size:12px}
+.btn.danger{color:var(--bad)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#filters{padding:12px 16px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
+.frow{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start}
+.frow>span{color:var(--muted);font-size:12px;padding-top:5px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid transparent;background:var(--chip);border-radius:999px;padding:3px 10px;cursor:pointer;font-size:13px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+#q{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+#count{padding:8px 16px;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+#count b{color:var(--fg)}
+#list{flex:1;overflow:auto;min-height:0}
+.card{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.card:hover,.card.on{background:var(--chip)}
+.card h3{margin:0 0 2px;font-size:15px;display:flex;gap:6px;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}
+.meta .p-good{color:var(--good);font-weight:600}.meta .p-bad,.meta .p-none{color:var(--bad)}.meta .p-ok{color:var(--warn)}
+.sub{color:var(--muted);font-size:12px;margin-top:2px;overflow-wrap:anywhere}
+.tag{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted);font-weight:400}
+.acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.acts a{font-size:12px;color:var(--accent)}
+.empty{padding:28px 16px;color:var(--muted);text-align:center}
+#formPane{flex:1;overflow:auto;padding:14px 16px;display:grid;gap:10px;align-content:start}
+#formPane label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+#formPane input,#formPane select,#formPane textarea{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:14px;width:100%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.addr{display:grid;grid-template-columns:1fr auto;gap:6px}
+#locMsg{font-size:12px;padding:8px 10px;border-radius:8px;background:var(--chip)}
+#locMsg.ok{color:var(--good)}#locMsg.err{color:var(--bad)}
+.check{display:flex!important;grid-template-columns:none;align-items:center;gap:6px;color:var(--fg)!important;font-size:14px!important}
+.check input{width:auto!important}
+.pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);display:grid;place-items:center}
+.pin span{transform:rotate(45deg);color:#fff;font-weight:700;font-size:11px}
+.pin.on{outline:3px solid #111;outline-offset:1px}
+.leaflet-popup-content{font:13px/1.5 inherit;margin:10px 12px}
+.leaflet-popup-content b{font-size:14px}
+@media (max-width:760px){
+  body{flex-direction:column-reverse}
+  #side{width:100%;height:58%;border-right:0;border-top:1px solid var(--line)}
+  #map{height:42%;flex:none}
+  #browse{overflow:auto}
+  #list{overflow:visible;flex:none}
+}
+</style>
+</head>
+<body>
+<aside id="side">
+  <header>
+    <h1>GatherSpot</h1>
+    <button class="btn small" id="btnData" title="내보내기 / 가져오기">데이터</button>
+    <button class="btn primary" id="btnAdd">+ 가게 등록</button>
+  </header>
+
+  <div id="dataBar" hidden style="padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn small" id="btnExport">파일로 내보내기</button>
+    <button class="btn small" id="btnImport">파일에서 가져오기</button>
+    <button class="btn small danger" id="btnClearSample">예시 데이터 지우기</button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+  </div>
+
+  <div id="browse" style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div id="filters">
+      <input id="q" type="search" placeholder="가게 이름 · 메모 검색">
+      <div class="frow"><span>인원</span><div class="chips" id="fSize"></div></div>
+      <div class="frow"><span>주차</span><div class="chips" id="fPark"></div></div>
+      <div class="frow"><span>음식</span><div class="chips" id="fCat"></div></div>
+      <div class="frow"><span>인당</span><div class="chips" id="fBudget"></div></div>
+      <div class="frow"><span>기타</span><div class="chips" id="fEtc"></div></div>
+    </div>
+    <div id="count"></div>
+    <div id="list"></div>
+  </div>
+
+  <form id="formPane" hidden autocomplete="off">
+    <strong id="formTitle" style="font-size:15px">가게 등록</strong>
+    <label>가게 이름<input id="fName" required></label>
+    <label>주소
+      <div class="addr"><input id="fAddr" placeholder="도로명 주소 또는 동네 이름"><button type="button" class="btn" id="btnGeo">위치 찾기</button></div>
+    </label>
+    <div id="locMsg">주소로 찾거나, 지도를 직접 눌러 위치를 찍으세요. 핀은 끌어서 옮길 수 있습니다.</div>
+    <div class="two">
+      <label>음식 종류<select id="fCatSel"></select></label>
+      <label>단체 수용 인원<select id="fCap"></select></label>
+    </div>
+    <div class="two">
+      <label>주차<select id="fParkSel"></select></label>
+      <label>인당 예상 가격(원)<input id="fPrice" type="number" min="0" step="1000" placeholder="15000" required></label>
+    </div>
+    <label class="check"><input type="checkbox" id="fRoom">단체룸 · 별실 있음</label>
+    <label>전화번호<input id="fTel" placeholder="02-000-0000"></label>
+    <label>메모<textarea id="fMemo" rows="3" placeholder="예약 필수, 대표 메뉴, 주차 팁 등"></textarea></label>
+    <div style="display:flex;gap:8px">
+      <button class="btn primary" type="submit" style="flex:1">저장</button>
+      <button class="btn" type="button" id="btnCancel">취소</button>
+    </div>
+  </form>
+</aside>
+<div id="map"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const KEY = 'moim-map-v1';
+const CATS = [
+  ['한식','#c2553a'],['고기·구이','#a8324a'],['해산물·회','#2b7a8c'],['중식','#c98512'],
+  ['일식','#34609e'],['양식','#4f7f3f'],['뷔페','#7a4fa0'],['기타','#5b6470']
+];
+const CAT_COLOR = Object.fromEntries(CATS);
+const SIZES = [5,10,15,20,40];
+const sizeLabel = n => n >= 40 ? '40명 이상' : n + '명';
+const PARK = {good:'주차 원활', ok:'주차 보통', bad:'주차 어려움', none:'주차 불가'};
+const BUDGETS = [10000,15000,20000,30000,50000];
+const won = n => Number(n).toLocaleString('ko-KR') + '원';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+
+// 예시 데이터: 실제 가게가 아닙니다. 사용법을 보여주기 위한 가상의 항목입니다.
+const SAMPLES = [
+  {name:'[예시] 한솥 한정식', cat:'한식', cap:40, park:'good', price:28000, room:true, lat:37.5704, lng:126.9769, addr:'서울 종로구 (예시)', memo:'대형 연회실, 전용 주차장 30대'},
+  {name:'[예시] 참숯 갈비마을', cat:'고기·구이', cap:20, park:'good', price:35000, room:true, lat:37.5612, lng:126.9942, addr:'서울 중구 (예시)', memo:'20인 룸 1개, 예약 필수'},
+  {name:'[예시] 바다횟집', cat:'해산물·회', cap:15, park:'ok', price:40000, room:true, lat:37.5549, lng:126.9708, addr:'서울 용산구 (예시)', memo:'건물 주차 2시간 무료'},
+  {name:'[예시] 홍루 중화요리', cat:'중식', cap:10, park:'bad', price:18000, room:true, lat:37.5665, lng:126.9850, addr:'서울 중구 (예시)', memo:'원형 테이블 룸, 주변 공영주차장 이용'},
+  {name:'[예시] 골목 칼국수', cat:'한식', cap:5, park:'none', price:9000, room:false, lat:37.5740, lng:126.9900, addr:'서울 종로구 (예시)', memo:'점심 협의회용, 회전 빠름'},
+  {name:'[예시] 더 그릴 뷔페', cat:'뷔페', cap:40, park:'good', price:32000, room:true, lat:37.5580, lng:127.0050, addr:'서울 중구 (예시)', memo:'단체 할인, 지하주차장 넓음'},
+  {name:'[예시] 파스타 테이블', cat:'양식', cap:15, park:'ok', price:22000, room:false, lat:37.5790, lng:126.9710, addr:'서울 종로구 (예시)', memo:'홀 대관 가능(15인 이상)'}
+].map((s,i) => ({...s, id:'sample-'+i, sample:true, tel:''}));
+
+let stores = load();
+const F = {q:'', size:0, park:'any', cats:new Set(), budget:0, room:false};
+let selected = null, editing = null, draft = null, draftMarker = null;
+
+function load(){
+  try{ const v = JSON.parse(localStorage.getItem(KEY)); if(Array.isArray(v)) return v; }catch(e){}
+  return SAMPLES.slice();
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(stores)); }catch(e){} }
+
+/* ---------- 지도 ---------- */
+const map = L.map('map', {zoomControl:true}).setView([37.5665,126.9780], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 기여자'
+}).addTo(map);
+const layer = L.layerGroup().addTo(map);
+const markers = new Map();
+
+function pinIcon(s, on){
+  return L.divIcon({className:'', iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-28],
+    html:`<div class="pin${on?' on':''}" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"><span>${s.cap>=40?'40+':s.cap}</span></div>`});
+}
+function popupHtml(s){
+  const q = encodeURIComponent(s.name.replace('[예시] ','') + (s.addr && !s.sample ? ' ' + s.addr : ''));
+  return `<b>${esc(s.name)}</b><br>${esc(s.cat)} · 인당 ${won(s.price)}<br>`
+    + `단체 ${sizeLabel(s.cap)}${s.room?' · 룸 있음':''} · ${PARK[s.park]}`
+    + (s.addr?`<br>${esc(s.addr)}`:'') + (s.tel?`<br>${esc(s.tel)}`:'')
+    + (s.memo?`<br><span style="opacity:.75">${esc(s.memo)}</span>`:'')
+    + `<br><a href="https://map.naver.com/p/search/${q}" target="_blank" rel="noopener">네이버지도</a> · `
+    + `<a href="https://map.kakao.com/?q=${q}" target="_blank" rel="noopener">카카오맵</a>`;
+}
+
+/* ---------- 필터 ---------- */
+function matches(s){
+  if(F.size && s.cap < F.size) return false;
+  if(F.park === 'good' && s.park !== 'good') return false;
+  if(F.park === 'can' && !(s.park === 'good' || s.park === 'ok')) return false;
+  if(F.cats.size && !F.cats.has(s.cat)) return false;
+  if(F.budget && s.price > F.budget) return false;
+  if(F.room && !s.room) return false;
+  if(F.q){ const t = (s.name+' '+(s.memo||'')+' '+(s.addr||'')).toLowerCase(); if(!t.includes(F.q.toLowerCase())) return false; }
+  return true;
+}
+function chip(parent, label, pressed, onClick){
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'chip'; b.textContent = label;
+  b.setAttribute('aria-pressed', pressed); b.onclick = onClick; parent.appendChild(b);
+}
+function renderFilters(){
+  const set = (id, fn) => { const el = $(id); el.textContent = ''; fn(el); };
+  set('fSize', el => { chip(el,'전체',F.size===0,()=>{F.size=0;render();});
+    SIZES.forEach(n => chip(el, sizeLabel(n), F.size===n, ()=>{F.size=n;render();})); });
+  set('fPark', el => [['any','상관없음'],['can','주차 가능'],['good','원활한 곳만']]
+    .forEach(([k,l]) => chip(el,l,F.park===k,()=>{F.park=k;render();})));
+  set('fCat', el => CATS.forEach(([c]) => chip(el,c,F.cats.has(c),()=>{F.cats.has(c)?F.cats.delete(c):F.cats.add(c);render();})));
+  set('fBudget', el => { chip(el,'전체',F.budget===0,()=>{F.budget=0;render();});
+    BUDGETS.forEach(n => chip(el, (n/10000)+'만원 이하', F.budget===n, ()=>{F.budget=n;render();})); });
+  set('fEtc', el => chip(el,'단체룸 있음',F.room,()=>{F.room=!F.room;render();}));
+}
+
+/* ---------- 목록 + 마커 ---------- */
+function render(fit){
+  renderFilters();
+  const shown = stores.filter(matches).sort((a,b) => a.price - b.price);
+  $('count').innerHTML = `<span>조건에 맞는 곳 <b>${shown.length}</b> / 전체 ${stores.length}</span>`
+    + (stores.some(s=>s.sample) ? '<span class="tag">예시 데이터 포함</span>' : '');
+  $('btnClearSample').hidden = !stores.some(s=>s.sample);
+
+  layer.clearLayers(); markers.clear();
+  shown.forEach(s => {
+    const m = L.marker([s.lat,s.lng], {icon:pinIcon(s, s.id===selected), title:s.name}).bindPopup(popupHtml(s));
+    m.on('click', () => select(s.id, false));
+    m.addTo(layer); markers.set(s.id, m);
+  });
+
+  const list = $('list'); list.textContent = '';
+  if(!shown.length){
+    list.innerHTML = `<div class="empty">${stores.length ? '조건에 맞는 가게가 없습니다.<br>조건을 줄여 보세요.' : '등록된 가게가 없습니다.<br>오른쪽 위 “가게 등록”으로 첫 가게를 추가하세요.'}</div>`;
+  }
+  shown.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'card' + (s.id===selected ? ' on' : ''); d.dataset.id = s.id;
+    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}</h3>
+      <div class="meta"><span>${esc(s.cat)}</span><span><b>인당 ${won(s.price)}</b></span>
+      <span>단체 ${sizeLabel(s.cap)}${s.room?' · 룸':''}</span><span class="p-${s.park}">${PARK[s.park]}</span></div>
+      ${s.addr?`<div class="sub">${esc(s.addr)}</div>`:''}${s.memo?`<div class="sub">${esc(s.memo)}</div>`:''}`;
+    if(s.id === selected){
+      const a = document.createElement('div'); a.className = 'acts';
+      const e = document.createElement('button'); e.className='btn small'; e.textContent='수정';
+      e.onclick = ev => { ev.stopPropagation(); openForm(s); };
+      const x = document.createElement('button'); x.className='btn small danger'; x.textContent='삭제';
+      x.onclick = ev => { ev.stopPropagation();
+        if(x.dataset.sure){ stores = stores.filter(t=>t.id!==s.id); selected=null; save(); render(); }
+        else { x.dataset.sure = 1; x.textContent = '정말 삭제할까요?'; } };
+      a.append(e,x); d.appendChild(a);
+    }
+    d.onclick = () => select(s.id, true);
+    list.appendChild(d);
+  });
+  if(fit && shown.length) map.fitBounds(L.latLngBounds(shown.map(s=>[s.lat,s.lng])).pad(0.2), {maxZoom:16});
+}
+function select(id, pan){
+  selected = id; render();
+  const m = markers.get(id);
+  if(m){ if(pan){ map.setView(m.getLatLng(), Math.max(map.getZoom(),15)); m.openPopup(); } }
+  const c = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+  if(c && !pan) c.scrollIntoView({block:'nearest'});
+}
+
+/* ---------- 등록 / 수정 ---------- */
+CATS.forEach(([c]) => $('fCatSel').add(new Option(c,c)));
+[[4,'4명 이하(소규모)'],...SIZES.map(n=>[n, sizeLabel(n)+(n<40?' 까지':'')])].forEach(([v,l]) => $('fCap').add(new Option(l,v)));
+Object.entries(PARK).forEach(([k,l]) => $('fParkSel').add(new Option(l,k)));
+
+function setDraft(latlng, msg){
+  draft = latlng;
+  if(!draftMarker){
+    draftMarker = L.marker(latlng, {draggable:true, zIndexOffset:1000}).addTo(map);
+    draftMarker.on('dragend', () => setDraft(draftMarker.getLatLng(), '위치를 옮겼습니다.'));
+  } else draftMarker.setLatLng(latlng);
+  $('locMsg').className = 'ok'; $('locMsg').textContent = msg || '위치가 지정되었습니다. 핀을 끌어 미세 조정할 수 있습니다.';
+}
+function openForm(s){
+  editing = s ? s.id : null;
+  $('formTitle').textContent = s ? '가게 수정' : '가게 등록';
+  $('fName').value = s?.name || ''; $('fAddr').value = s?.addr || '';
+  $('fCatSel').value = s?.cat || '한식'; $('fCap').value = s?.cap || 10;
+  $('fParkSel').value = s?.park || 'ok'; $('fPrice').value = s?.price ?? '';
+  $('fRoom').checked = !!s?.room; $('fTel').value = s?.tel || ''; $('fMemo').value = s?.memo || '';
+  $('locMsg').className = ''; $('locMsg').textContent = '주소로 찾거나, 지도를 직접 눌러 위치를 찍으세요. 핀은 끌어서 옮길 수 있습니다.';
+  draft = null;
+  if(s){ setDraft(L.latLng(s.lat,s.lng), '현재 위치입니다. 지도를 누르거나 핀을 끌어 바꿀 수 있습니다.'); map.setView([s.lat,s.lng], 16); }
+  $('browse').style.display = 'none'; $('formPane').hidden = false; layer.remove();
+  $('fName').focus();
+}
+function closeForm(){
+  if(draftMarker){ draftMarker.remove(); draftMarker = null; }
+  draft = null; editing = null;
+  $('formPane').hidden = true; $('browse').style.display = 'flex'; layer.addTo(map);
+}
+map.on('click', e => { if(!$('formPane').hidden) setDraft(e.latlng, '지도에서 위치를 찍었습니다. 핀을 끌어 미세 조정할 수 있습니다.'); });
+
+$('btnGeo').onclick = async () => {
+  const q = $('fAddr').value.trim() || $('fName').value.trim();
+  if(!q){ $('locMsg').className='err'; $('locMsg').textContent='주소나 가게 이름을 먼저 입력하세요.'; return; }
+  $('locMsg').className=''; $('locMsg').textContent='위치를 찾는 중…';
+  try{
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kr&accept-language=ko&q=' + encodeURIComponent(q));
+    const j = await r.json();
+    if(!j.length) throw 0;
+    const ll = L.latLng(+j[0].lat, +j[0].lon);
+    setDraft(ll, '찾은 위치: ' + j[0].display_name + ' — 정확하지 않으면 핀을 끌어 옮기세요.');
+    map.setView(ll, 17);
+  }catch(e){
+    $('locMsg').className='err';
+    $('locMsg').textContent='주소로 위치를 찾지 못했습니다. 동 이름까지만 입력해 다시 찾거나, 지도를 직접 눌러 찍으세요.';
+  }
+};
+$('formPane').onsubmit = e => {
+  e.preventDefault();
+  if(!draft){ $('locMsg').className='err'; $('locMsg').textContent='위치가 아직 없습니다. “위치 찾기”를 누르거나 지도를 눌러 찍으세요.'; return; }
+  const s = {
+    id: editing || 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name:$('fName').value.trim(), addr:$('fAddr').value.trim(), cat:$('fCatSel').value,
+    cap:+$('fCap').value, park:$('fParkSel').value, price:+$('fPrice').value || 0,
+    room:$('fRoom').checked, tel:$('fTel').value.trim(), memo:$('fMemo').value.trim(),
+    lat:draft.lat, lng:draft.lng
+  };
+  const i = stores.findIndex(t => t.id === s.id);
+  if(i >= 0) stores[i] = s; else stores.push(s);
+  selected = s.id; save(); closeForm(); render();
+};
+$('btnAdd').onclick = () => openForm(null);
+$('btnCancel').onclick = () => { closeForm(); render(); };
+
+/* ---------- 데이터 ---------- */
+$('btnData').onclick = () => { $('dataBar').hidden = !$('dataBar').hidden; };
+$('btnClearSample').onclick = () => { stores = stores.filter(s => !s.sample); selected = null; save(); render(true); };
+$('btnExport').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(stores, null, 2)], {type:'application/json'}));
+  a.download = '모임장소-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('btnImport').onclick = () => $('fileIn').click();
+$('fileIn').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const arr = JSON.parse(await f.text());
+    if(!Array.isArray(arr)) throw 0;
+    const byId = new Map(stores.map(s => [s.id, s]));
+    arr.filter(s => s && s.name && isFinite(s.lat) && isFinite(s.lng)).forEach(s => byId.set(s.id || 'i'+Math.random().toString(36).slice(2), s));
+    stores = [...byId.values()]; save(); render(true);
+  }catch(err){ $('count').innerHTML = '<span style="color:var(--bad)">가져오기 실패: 이 프로그램에서 내보낸 JSON 파일인지 확인하세요.</span>'; }
+  e.target.value = '';
+};
+
+$('q').oninput = e => { F.q = e.target.value.trim(); render(); };
+render(true);
+setTimeout(() => map.invalidateSize(), 100);
+</script>
+</body>
+</html>
