@@ -83,7 +83,6 @@ header h1{font-size:17px;margin:0;flex:1;letter-spacing:-.02em}
   <div id="dataBar" hidden style="padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap">
     <button class="btn small" id="btnExport">파일로 내보내기</button>
     <button class="btn small" id="btnImport">파일에서 가져오기</button>
-    <button class="btn small danger" id="btnClearSample">예시 데이터 지우기</button>
     <input type="file" id="fileIn" accept=".json,application/json" hidden>
   </div>
 
@@ -141,25 +140,39 @@ const won = n => Number(n).toLocaleString('ko-KR') + '원';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = id => document.getElementById(id);
 
-// 예시 데이터: 실제 가게가 아닙니다. 사용법을 보여주기 위한 가상의 항목입니다.
-const SAMPLES = [
-  {name:'[예시] 한솥 한정식', cat:'한식', cap:40, park:'good', price:28000, room:true, lat:37.5704, lng:126.9769, addr:'서울 종로구 (예시)', memo:'대형 연회실, 전용 주차장 30대'},
-  {name:'[예시] 참숯 갈비마을', cat:'고기·구이', cap:20, park:'good', price:35000, room:true, lat:37.5612, lng:126.9942, addr:'서울 중구 (예시)', memo:'20인 룸 1개, 예약 필수'},
-  {name:'[예시] 바다횟집', cat:'해산물·회', cap:15, park:'ok', price:40000, room:true, lat:37.5549, lng:126.9708, addr:'서울 용산구 (예시)', memo:'건물 주차 2시간 무료'},
-  {name:'[예시] 홍루 중화요리', cat:'중식', cap:10, park:'bad', price:18000, room:true, lat:37.5665, lng:126.9850, addr:'서울 중구 (예시)', memo:'원형 테이블 룸, 주변 공영주차장 이용'},
-  {name:'[예시] 골목 칼국수', cat:'한식', cap:5, park:'none', price:9000, room:false, lat:37.5740, lng:126.9900, addr:'서울 종로구 (예시)', memo:'점심 협의회용, 회전 빠름'},
-  {name:'[예시] 더 그릴 뷔페', cat:'뷔페', cap:40, park:'good', price:32000, room:true, lat:37.5580, lng:127.0050, addr:'서울 중구 (예시)', memo:'단체 할인, 지하주차장 넓음'},
-  {name:'[예시] 파스타 테이블', cat:'양식', cap:15, park:'ok', price:22000, room:false, lat:37.5790, lng:126.9710, addr:'서울 종로구 (예시)', memo:'홀 대관 가능(15인 이상)'}
-].map((s,i) => ({...s, id:'sample-'+i, sample:true, tel:''}));
+// 기본 등록 가게: 웹 검색(맛집 소개 글·후기)으로 찾은 부산 명지 지역 후보입니다.
+// 주소는 검색 결과 기준이고, 인원·주차·가격에는 추정이 섞여 있어 "미확인"으로 표시합니다.
+const SEED = [
+  {id:'mj-ori', name:'오리한상 명지본점', cat:'고기·구이', cap:40, park:'ok', price:25000, room:true,
+   addr:'부산 강서구 명지국제9로 66 지봉빌딩 2층', memo:'오리구이·불고기. 폴딩도어 룸, 최대 60인 소개 글 있음. 건물 지하주차. 인당 가격은 추정.'},
+  {id:'mj-136', name:'일삼육고기집 명지본점', cat:'고기·구이', cap:20, park:'good', price:25000, room:true,
+   addr:'부산 강서구 명지국제8로 293 2층', memo:'흑돼지·돼지갈비. 룸 있음, 매장 옆 큰 주차장 후기. 점심특선 11,000~14,000원. 수용 인원은 추정.'},
+  {id:'mj-jangeo', name:'일백풍천민물장어 명지직영점', cat:'해산물·회', cap:20, park:'good', price:40000, room:true,
+   addr:'부산 강서구 르노삼성대로 638-10 더엠빌딩 2층', memo:'민물장어. 룸·전용주차장 소개 글 있음. 인원과 가격은 추정.'},
+  {id:'mj-lacampo', name:'라캄포다이닝 명지본점', cat:'양식', cap:40, park:'good', price:25000, room:false,
+   addr:'부산 강서구 명지국제6로34번길 32 1층', memo:'화덕피자·파스타(15,000~17,000원대). 대형 홀과 야외 좌석, 전용주차장 소개. 인원은 추정.'},
+  {id:'mj-sobok', name:'소복회 명지본점', cat:'해산물·회', cap:10, park:'bad', price:35000, room:true,
+   addr:'부산 강서구 명지국제12로 20', memo:'숙성회. 룸 있음. 건물 뒤 주차 4대 안팎으로 협소. 인원과 인당 가격은 추정.'},
+  {id:'mj-bobae', name:'보배반점 명지점', cat:'중식', cap:15, park:'ok', price:12000, room:false,
+   addr:'부산 강서구 명지오션시티10로 140', memo:'중식. 넓은 테이블 배치로 단체 이용 소개. 주차·인원·가격 모두 추정.'},
+  {id:'mj-first', name:'명지첫집 오션시티직영점', cat:'한식', cap:15, park:'ok', price:26000, room:true,
+   addr:'부산 강서구 명지오션시티11로 74 오션타워 2층', memo:'보쌈정식. 개별룸, 지하주차. 후기상 인당 26,000원 안팎. 인원은 추정.'}
+].map(s => ({...s, tel:'', unverified:true}));
 
 let stores = load();
 const F = {q:'', size:0, park:'any', cats:new Set(), budget:0, room:false};
 let selected = null, editing = null, draft = null, draftMarker = null;
 
+function removedIds(){ try{ return JSON.parse(localStorage.getItem(KEY+'-del')) || []; }catch(e){ return []; } }
 function load(){
-  try{ const v = JSON.parse(localStorage.getItem(KEY)); if(Array.isArray(v)) return v; }catch(e){}
-  return SAMPLES.slice();
+  let v = []; try{ const j = JSON.parse(localStorage.getItem(KEY)); if(Array.isArray(j)) v = j; }catch(e){}
+  v = v.filter(s => !s.sample);
+  const have = new Set(v.map(s => s.id)), gone = new Set(removedIds());
+  SEED.forEach(s => { if(!have.has(s.id) && !gone.has(s.id)) v.push({...s}); });
+  return v;
 }
+function forget(id){ if(!SEED.some(s => s.id === id)) return; try{ localStorage.setItem(KEY+'-del', JSON.stringify([...new Set([...removedIds(), id])])); }catch(e){} }
+const hasPos = s => isFinite(s.lat) && isFinite(s.lng);
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(stores)); }catch(e){} }
 
 
@@ -175,7 +188,7 @@ function mapMessage(t){
   m.textContent = t;
 }
 function initMap(){
-  map = new naver.maps.Map('map', {center:LL(37.5665,126.9780), zoom:13, zoomControl:true,
+  map = new naver.maps.Map('map', {center:LL(35.0935,128.9060), zoom:14, zoomControl:true,
     zoomControlOptions:{position:naver.maps.Position.TOP_RIGHT}});
   iw = new naver.maps.InfoWindow({content:'', maxWidth:280});
   naver.maps.Event.addListener(map, 'click', e => {
@@ -184,6 +197,7 @@ function initMap(){
   });
   window.addEventListener('resize', () => { if(map.autoResize) map.autoResize(); });
   render(true);
+  locateMissing();
 }
 function pinIcon(s, on){
   return {content:`<div class="pin${on?' on':''}" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"><span>${s.cap>=40?'40+':s.cap}</span></div>`,
@@ -232,23 +246,23 @@ function render(fit){
   renderFilters();
   const shown = stores.filter(matches).sort((a,b) => a.price - b.price);
   $('count').innerHTML = `<span>조건에 맞는 곳 <b>${shown.length}</b> / 전체 ${stores.length}</span>`
-    + (stores.some(s=>s.sample) ? '<span class="tag">예시 데이터 포함</span>' : '');
-  $('btnClearSample').hidden = !stores.some(s=>s.sample);
+    + (stores.some(s=>s.unverified) ? '<span class="tag">미확인 = 가 보고 고쳐 주세요</span>' : '');
 
   if(map){
     const open = iw.getMap() ? selected : null;
     clearMarkers();
-    shown.forEach(s => {
+    shown.filter(hasPos).forEach(s => {
       const m = new naver.maps.Marker({position:LL(s.lat,s.lng), map, title:s.name, icon:pinIcon(s, s.id===selected)});
       naver.maps.Event.addListener(m, 'click', () => select(s.id, false, true));
       markers.set(s.id, m);
     });
     if(open && markers.has(open)){ iw.setContent(popupHtml(stores.find(s=>s.id===open))); iw.open(map, markers.get(open)); }
-    if(fit && shown.length){
-      const b = new naver.maps.LatLngBounds(LL(shown[0].lat,shown[0].lng), LL(shown[0].lat,shown[0].lng));
-      shown.forEach(s => b.extend(LL(s.lat,s.lng)));
-      if(shown.length > 1) map.fitBounds(b, {top:60,right:60,bottom:60,left:60});
-      else { map.setCenter(LL(shown[0].lat,shown[0].lng)); map.setZoom(16); }
+    const pos = shown.filter(hasPos);
+    if(fit && pos.length){
+      const b = new naver.maps.LatLngBounds(LL(pos[0].lat,pos[0].lng), LL(pos[0].lat,pos[0].lng));
+      pos.forEach(s => b.extend(LL(s.lat,s.lng)));
+      if(pos.length > 1) map.fitBounds(b, {top:60,right:60,bottom:60,left:60});
+      else { map.setCenter(LL(pos[0].lat,pos[0].lng)); map.setZoom(16); }
     }
   }
 
@@ -259,7 +273,7 @@ function render(fit){
   shown.forEach(s => {
     const d = document.createElement('div');
     d.className = 'card' + (s.id===selected ? ' on' : ''); d.dataset.id = s.id;
-    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}</h3>
+    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}${s.unverified?' <span class="tag">미확인</span>':''}${hasPos(s)?'':' <span class="tag">지도 위치 없음</span>'}</h3>
       <div class="meta"><span>${esc(s.cat)}</span><span><b>인당 ${won(s.price)}</b></span>
       <span>단체 ${sizeLabel(s.cap)}${s.room?' · 룸':''}</span><span class="p-${s.park}">${PARK[s.park]}</span></div>
       ${s.addr?`<div class="sub">${esc(s.addr)}</div>`:''}${s.memo?`<div class="sub">${esc(s.memo)}</div>`:''}`;
@@ -269,7 +283,7 @@ function render(fit){
       e.onclick = ev => { ev.stopPropagation(); openForm(s); };
       const x = document.createElement('button'); x.className='btn small danger'; x.textContent='삭제';
       x.onclick = ev => { ev.stopPropagation();
-        if(x.dataset.sure){ stores = stores.filter(t=>t.id!==s.id); selected=null; save(); render(); }
+        if(x.dataset.sure){ forget(s.id); stores = stores.filter(t=>t.id!==s.id); selected=null; save(); render(); }
         else { x.dataset.sure = 1; x.textContent = '정말 삭제할까요?'; } };
       a.append(e,x); d.appendChild(a);
     }
@@ -312,7 +326,7 @@ function openForm(s){
   $('fRoom').checked = !!s?.room; $('fTel').value = s?.tel || ''; $('fMemo').value = s?.memo || '';
   $('locMsg').className = ''; $('locMsg').textContent = DEFAULT_MSG;
   draft = null; clearMarkers();
-  if(s){ setDraft(LL(s.lat,s.lng), '현재 위치입니다. 지도를 누르거나 핀을 끌어 바꿀 수 있습니다.'); map.setCenter(LL(s.lat,s.lng)); map.setZoom(16); }
+  if(s && hasPos(s)){ setDraft(LL(s.lat,s.lng), '현재 위치입니다. 지도를 누르거나 핀을 끌어 바꿀 수 있습니다.'); map.setCenter(LL(s.lat,s.lng)); map.setZoom(16); }
   $('browse').style.display = 'none'; $('formPane').hidden = false;
   $('fName').focus();
 }
@@ -354,7 +368,6 @@ $('btnCancel').onclick = () => { closeForm(); render(); };
 
 /* ---------- 데이터 ---------- */
 $('btnData').onclick = () => { $('dataBar').hidden = !$('dataBar').hidden; };
-$('btnClearSample').onclick = () => { stores = stores.filter(s => !s.sample); selected = null; save(); render(true); };
 $('btnExport').onclick = () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(stores, null, 2)], {type:'application/json'}));
@@ -368,12 +381,29 @@ $('fileIn').onchange = async e => {
     const arr = JSON.parse(await f.text());
     if(!Array.isArray(arr)) throw 0;
     const byId = new Map(stores.map(s => [s.id, s]));
-    arr.filter(s => s && s.name && isFinite(s.lat) && isFinite(s.lng)).forEach(s => byId.set(s.id || 'i'+Math.random().toString(36).slice(2), s));
-    stores = [...byId.values()]; save(); render(true);
+    arr.filter(s => s && s.name && (hasPos(s) || s.addr)).forEach(s => byId.set(s.id || 'i'+Math.random().toString(36).slice(2), s));
+    stores = [...byId.values()]; save(); render(true); locateMissing();
   }catch(err){ $('count').innerHTML = '<span style="color:var(--bad)">가져오기 실패: 이 프로그램에서 내보낸 JSON 파일인지 확인하세요.</span>'; }
   e.target.value = '';
 };
 $('q').oninput = e => { F.q = e.target.value.trim(); render(); };
+
+/* ---------- 주소만 있는 가게의 위치 찾기 ---------- */
+function locateMissing(){
+  if(!map || !naver.maps.Service) return;
+  const todo = stores.filter(s => !hasPos(s) && s.addr && !s.geoFailed);
+  (function next(){
+    const s = todo.shift();
+    if(!s){ return; }
+    const m = s.addr.match(/^(.*?\d+(?:-\d+)?)(?=\s|$)/);
+    naver.maps.Service.geocode({query: m ? m[1] : s.addr}, (status, res) => {
+      const a = status === naver.maps.Service.Status.OK && res && res.v2 && res.v2.addresses && res.v2.addresses[0];
+      if(a){ s.lat = +a.y; s.lng = +a.x; } else s.geoFailed = true;
+      save(); if($('formPane').hidden) render(!todo.length);
+      setTimeout(next, 150);
+    });
+  })();
+}
 
 /* ---------- 네이버 지도 불러오기 ---------- */
 render();
