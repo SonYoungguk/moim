@@ -156,7 +156,53 @@ const SEED = [
   {id:'mj-bobae', name:'보배반점 명지점', cat:'중식', cap:15, park:'ok', price:12000, room:false,
    addr:'부산 강서구 명지오션시티10로 140', memo:'중식. 넓은 테이블 배치로 단체 이용 소개. 주차·인원·가격 모두 추정.'},
   {id:'mj-first', name:'명지첫집 오션시티직영점', cat:'한식', cap:15, park:'ok', price:26000, room:true,
-   addr:'부산 강서구 명지오션시티11로 74 오션타워 2층', memo:'보쌈정식. 개별룸, 지하주차. 후기상 인당 26,000원 안팎. 인원은 추정.'}
+   addr:'부산 강서구 명지오션시티11로 74 오션타워 2층', memo:'보쌈정식. 개별룸, 지하주차. 후기상 인당 26,000원 안팎. 인원은 추정.'},
+  {id:'mj-yong', name:'용한우', cat:'고기·구이', cap:40, park:'ok', price:50000, room:true,
+   addr:'부산 강서구 명지국제6로232번길 11-1 1층', memo:'한우 등심·안심, 양념갈비. 룸(6~15인)과 대형 홀, 최대 65명가량 수용 후기. 주차와 인당 가격은 추정.'},
+  {id:'mj-geumok', name:'금옥갈비 명지점', cat:'고기·구이', cap:20, park:'ok', price:25000, room:true,
+   addr:'부산 강서구 르노삼성대로 638-10 4층', memo:'돼지갈비·소갈비. 룸과 홀 함께 운영. 인원·주차·가격은 추정.'},
+  {id:'mj-dwae', name:'돼장금 참숯양념돼지갈비', cat:'고기·구이', cap:20, park:'ok', price:20000, room:false,
+   addr:'부산 강서구 명지오션시티4로 62 2층 202호', memo:'양념돼지갈비. 회식 장소로 소개, 무료주차 표시. 인원과 가격은 추정.'},
+  {id:'mj-gogiga', name:'고기가', cat:'고기·구이', cap:15, park:'ok', price:20000, room:false,
+   addr:'부산 강서구 명지오션시티8로42번길 12-6 1층', memo:'삼겹살. 가게 앞 주차 후기, 예약·단체 가능 표시. 인원과 가격은 추정.'},
+  {id:'mj-msg', name:'명성가 부산명지점', cat:'해산물·회', cap:20, park:'ok', price:20000, room:true,
+   addr:'부산 강서구 명지국제6로1번가길 18', memo:'아구찜·아구불고기. 단체석·룸·주차 표시, 매장 넓다는 후기. 아구찜세트 58,000원. 인원은 추정.'},
+  {id:'mj-halla', name:'한라횟집', cat:'해산물·회', cap:15, park:'ok', price:30000, room:false,
+   addr:'부산 강서구 명지국제6로242번길 8-4 은성빌 1층', memo:'모듬회. 바로 옆 주차장, 단체 이용 가능 후기. 인원과 가격은 추정.'},
+  {id:'mj-gaet', name:'명지갯벌횟집', cat:'해산물·회', cap:20, park:'good', price:35000, room:false,
+   addr:'부산 강서구 명지국제11로 69', memo:'횟집. 넉넉한 주차공간·단체석 키워드. 인원과 가격은 추정.'},
+  {id:'mj-kw', name:'경원해물찜 명지오션시티점', cat:'해산물·회', cap:10, park:'ok', price:17000, room:false,
+   addr:'부산 강서구 명지오션시티7로 11', memo:'해물찜·아구찜 소 38,000원(2~3인)~대 58,000원. 인원과 주차는 추정.'},
+  {id:'mj-kanwei', name:'칸웨이 명지점', cat:'중식', cap:15, park:'ok', price:25000, room:true,
+   addr:'부산 강서구 명지오션시티4로 84', memo:'중화요리. 룸 식사 후기, 무료주차 표시. 인원과 가격은 추정.'},
+  {id:'mj-allday', name:'샤브올데이 부산명지점', cat:'뷔페', cap:40, park:'ok', price:25000, room:false,
+   addr:'부산 강서구 명지국제8로10번길 39 1층', memo:'샤브샤브 샐러드바. 2층까지 있어 단체 예약 가능, 무료주차 소개. 인원과 가격은 추정.'},
+  {id:'mj-shabu1', name:'샤브원 명지점', cat:'뷔페', cap:20, park:'good', price:30000, room:false,
+   addr:'부산 강서구 르노삼성대로 681-2 3층', memo:'샤브샤브 무한리필. 평일 저녁 인당 3만 원 안팎 후기, 주차장 넓다는 평. 인원은 추정.'},
+  {id:'mj-yaki', name:'샤브야키 부산명지점', cat:'뷔페', cap:20, park:'ok', price:29900, room:false,
+   addr:'부산 강서구 명지국제6로 90 오션퍼스트 2층', memo:'샤브샤브. 평일 런치 24,900원, 디너·주말 29,900원. 단체 이용·주차 가능 안내. 인원은 추정.'},
+  {id:'mj-gong', name:'일본공샤브샤브 부산명지점', cat:'뷔페', cap:20, park:'ok', price:25000, room:false,
+   addr:'부산 강서구 명지국제8로10번길 38 2층', memo:'샤브샤브·월남쌈 무한리필. 지하주차장, 단체석(3년 전 글 기준). 인원과 가격은 추정.'},
+  {id:'mj-chao', name:'챠오샤브 본점', cat:'기타', cap:15, park:'ok', price:20000, room:false,
+   addr:'부산 강서구 명지국제2로28번길 23 2동 222호', memo:'샤브샤브. 주차·단체 예약 가능 소개. 인원과 가격은 추정.'},
+  {id:'mj-gyodong', name:'교동한식뷔페 명지', cat:'뷔페', cap:20, park:'ok', price:9000, room:false,
+   addr:'부산 강서구 명지국제1로 56-1', memo:'한식뷔페. 주소만 확인됨. 인원·주차·가격 모두 추정.'},
+  {id:'mj-hwain', name:'화인맛집 한식뷔페', cat:'뷔페', cap:20, park:'ok', price:9000, room:false,
+   addr:'부산 강서구 명지국제2로28번길 26 209호', memo:'한식뷔페. 주소만 확인됨. 인원·주차·가격 모두 추정.'},
+  {id:'mj-sigol', name:'시골밥상 명지', cat:'뷔페', cap:15, park:'ok', price:9000, room:false,
+   addr:'부산 강서구 명지국제8로10번길 46 206호', memo:'한식뷔페. 주소만 확인됨. 인원·주차·가격 모두 추정.'},
+  {id:'mj-ampasta', name:'암파스타레 명지점', cat:'양식', cap:15, park:'ok', price:20000, room:false,
+   addr:'부산 강서구 명지국제5로136번길 19', memo:'파스타. 단체 이용·예약·주차 가능 표시(1년 전 자료). 인원과 가격은 추정.'},
+  {id:'mj-terabi', name:'브런치 앤 디너 테라비 명지점', cat:'양식', cap:10, park:'ok', price:18000, room:false,
+   addr:'부산 강서구 명지국제8로10번길 16 KB타워', memo:'브런치 14,500원, 파스타 17,500원. 인원과 주차는 추정.'},
+  {id:'mj-room606', name:'룸606 명지점', cat:'양식', cap:10, park:'ok', price:18000, room:false,
+   addr:'부산 강서구 명지국제6로 316 1층', memo:'피자·파스타 16,900~17,900원. 인원과 주차는 추정.'},
+  {id:'mj-poco', name:'포코푸오코', cat:'양식', cap:10, park:'ok', price:22000, room:false,
+   addr:'부산 강서구 명지국제5로148번길 47 1층', memo:'화덕피자·파스타. 인원과 주차는 추정.'},
+  {id:'mj-dongyang', name:'동양백반 스타필드 명지점', cat:'한식', cap:10, park:'good', price:19000, room:false,
+   addr:'부산 강서구 명지국제6로 168 스타필드시티 명지 3층', memo:'정식 17,900~19,900원. 스타필드 주차장 이용(주차 평가는 추정). 인원은 추정.'},
+  {id:'mj-outback', name:'아웃백 스테이크하우스 스타필드시티 명지점', cat:'양식', cap:15, park:'good', price:35000, room:false,
+   addr:'부산 강서구 명지국제6로 168 스타필드시티 명지 3층', memo:'스테이크. 스타필드 3층 입점 소개 글 기준. 주차 평가·인원·가격은 추정.'}
 ].map(s => ({...s, tel:'', unverified:true}));
 
 let stores = load();
@@ -273,7 +319,7 @@ function render(fit){
   shown.forEach(s => {
     const d = document.createElement('div');
     d.className = 'card' + (s.id===selected ? ' on' : ''); d.dataset.id = s.id;
-    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}${s.unverified?' <span class="tag">미확인</span>':''}${hasPos(s)?'':' <span class="tag">지도 위치 없음</span>'}</h3>
+    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}${s.unverified?' <span class="tag">미확인</span>':''}${hasPos(s)?'':` <span class="tag">${s.geoFailed ? '지도 위치 없음' : '위치 찾는 중'}</span>`}</h3>
       <div class="meta"><span>${esc(s.cat)}</span><span><b>인당 ${won(s.price)}</b></span>
       <span>단체 ${sizeLabel(s.cap)}${s.room?' · 룸':''}</span><span class="p-${s.park}">${PARK[s.park]}</span></div>
       ${s.addr?`<div class="sub">${esc(s.addr)}</div>`:''}${s.memo?`<div class="sub">${esc(s.memo)}</div>`:''}`;
@@ -389,18 +435,19 @@ $('fileIn').onchange = async e => {
 $('q').oninput = e => { F.q = e.target.value.trim(); render(); };
 
 /* ---------- 주소만 있는 가게의 위치 찾기 ---------- */
+let locating = false;
 function locateMissing(){
   if(!map || !naver.maps.Service) return;
   const todo = stores.filter(s => !hasPos(s) && s.addr && !s.geoFailed);
   (function next(){
     const s = todo.shift();
-    if(!s){ return; }
+    if(!s){ if(locating){ locating = false; save(); if($('formPane').hidden) render(true); } return; }
+    locating = true;
     const m = s.addr.match(/^(.*?\d+(?:-\d+)?)(?=\s|$)/);
     naver.maps.Service.geocode({query: m ? m[1] : s.addr}, (status, res) => {
       const a = status === naver.maps.Service.Status.OK && res && res.v2 && res.v2.addresses && res.v2.addresses[0];
       if(a){ s.lat = +a.y; s.lng = +a.x; } else s.geoFailed = true;
-      save(); if($('formPane').hidden) render(!todo.length);
-      setTimeout(next, 150);
+      setTimeout(next, 60);
     });
   })();
 }
