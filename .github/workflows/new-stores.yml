@@ -11,6 +11,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +21,7 @@ jobs:
       - name: 공공데이터포털에서 받기
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-        run: python scripts/fetch_new_stores.py
+        run: python -u scripts/fetch_new_stores.py
       - name: 바뀐 내용 저장
         run: |
           if git diff --quiet -- new-stores.json && git ls-files --error-unmatch new-stores.json >/dev/null 2>&1; then

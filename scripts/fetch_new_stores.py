@@ -7,6 +7,7 @@ new-stores.json 으로 저장합니다.
 import datetime as dt
 import json
 import os
+import signal
 import sys
 import time
 import urllib.error
@@ -62,12 +63,28 @@ def capacity(area):
     return 40
 
 
+REQUEST_LIMIT = 40     # 요청 하나에 쓰는 최대 초. 응답이 아주 느리게 흘러와도 이 시간이 지나면 끊습니다.
+TOTAL_LIMIT = 12 * 60  # 전체 받기에 쓰는 최대 초. 넘기면 받은 것까지만 저장합니다.
+STARTED = time.monotonic()
+
+
+def _too_slow(signum, frame):
+    raise TimeoutError("응답이 %d초 안에 끝나지 않음" % REQUEST_LIMIT)
+
+
+signal.signal(signal.SIGALRM, _too_slow)
+
+
 def get(url, tries=3):
     """포털이 가끔 응답하지 않으므로, 연결 오류와 서버 오류는 잠시 쉬었다가 다시 시도합니다."""
     for n in range(1, tries + 1):
         try:
-            with urllib.request.urlopen(url, timeout=30) as r:
-                return r.read().decode("utf-8")
+            signal.alarm(REQUEST_LIMIT)
+            try:
+                with urllib.request.urlopen(url, timeout=20) as r:
+                    return r.read().decode("utf-8")
+            finally:
+                signal.alarm(0)
         except urllib.error.HTTPError as e:
             if e.code < 500 or n == tries:
                 raise
@@ -138,6 +155,10 @@ def fetch(key, since):
     rows = []
     while start < end_all:
         end = min(add_months(start, MONTHS), end_all)
+        if time.monotonic() - STARTED > TOTAL_LIMIT:
+            FAILED.append("%s~%s" % (start.strftime("%Y%m%d"), end_all.strftime("%Y%m%d")))
+            print("시간 제한(%d분)에 걸려 %s 이후는 다음 실행으로 넘깁니다." % (TOTAL_LIMIT // 60, start))
+            break
         a, b = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
         try:
             rows += fetch_range(key, a, b)
