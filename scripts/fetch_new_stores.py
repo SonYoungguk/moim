@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -70,8 +71,14 @@ def fetch(key, since):
             "cond[LCPMT_YMD::GTE]": since,
         }
         url = API + "?" + urllib.parse.urlencode(q)
-        with urllib.request.urlopen(url, timeout=60) as r:
-            text = r.read().decode("utf-8")
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r:
+                text = r.read().decode("utf-8")
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "replace")[:600]
+            sys.exit("공공데이터포털이 HTTP %d 로 거부했습니다.\n응답: %s\n"
+                     "인증키가 아직 활성화되지 않았거나(발급 후 최대 1시간), 이 API의 활용신청이 승인되지 않았거나, "
+                     "키를 잘못 넣었을 수 있습니다." % (e.code, body))
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
@@ -97,6 +104,9 @@ def fetch(key, since):
 
 def main():
     key = os.environ.get("DATA_GO_KR_KEY", "").strip()
+    # Encoding 키(%2B 같은 글자가 든 키)를 넣었어도 동작하도록 한 번 풀어 줍니다.
+    if "%" in key:
+        key = urllib.parse.unquote(key)
     if not key:
         sys.exit("DATA_GO_KR_KEY 가 없습니다. 저장소 Settings > Secrets 에 공공데이터포털 인증키를 넣어 주세요.")
     today = dt.date.today()
