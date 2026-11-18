@@ -253,7 +253,7 @@ function pinIcon(s, on){
     size:new naver.maps.Size(30,30), anchor:new naver.maps.Point(15,30)};
 }
 function popupHtml(s){
-  const q = encodeURIComponent(s.name.replace('[예시] ','') + (s.addr && !s.sample ? ' ' + s.addr : ''));
+  const q = encodeURIComponent(s.name.replace('[예시] ',''));
   return `<div style="padding:10px 12px;font-size:13px;line-height:1.5;color:#1d2420"><b style="font-size:14px">${esc(s.name)}</b><br>${esc(s.cat)} · ${priceText(s)}<br>`
     + `단체 ${sizeLabel(s.cap)}${s.room?' · 룸 있음':''} · ${PARK[s.park]}`
     + (s.addr?`<br>${esc(s.addr)}`:'') + (s.tel?`<br>${esc(s.tel)}`:'')
