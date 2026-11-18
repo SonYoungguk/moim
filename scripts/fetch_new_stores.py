@@ -62,6 +62,23 @@ def capacity(area):
     return 40
 
 
+def get(url, tries=5):
+    """포털이 가끔 응답하지 않으므로, 연결 오류와 서버 오류는 잠시 쉬었다가 다시 시도합니다."""
+    for n in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=90) as r:
+                return r.read().decode("utf-8")
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or n == tries:
+                raise
+            print("서버 오류 %d, %d초 뒤 다시 시도 (%d/%d)" % (e.code, 5 * n, n, tries))
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if n == tries:
+                sys.exit("공공데이터포털에 %d번 연결을 시도했지만 실패했습니다: %s" % (tries, e))
+            print("연결 오류(%s), %d초 뒤 다시 시도 (%d/%d)" % (e, 5 * n, n, tries))
+        time.sleep(5 * n)
+
+
 def fetch(key, since):
     rows, page = [], 1
     while True:
@@ -72,8 +89,7 @@ def fetch(key, since):
         }
         url = API + "?" + urllib.parse.urlencode(q)
         try:
-            with urllib.request.urlopen(url, timeout=60) as r:
-                text = r.read().decode("utf-8")
+            text = get(url)
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", "replace")[:600]
             sys.exit("공공데이터포털이 HTTP %d 로 거부했습니다.\n응답: %s\n"
