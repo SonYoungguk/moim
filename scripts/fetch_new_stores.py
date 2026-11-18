@@ -218,8 +218,24 @@ def main():
             s["lat"], s["lng"] = ll
         out.append(s)
 
+    # 이번에 받지 못한 기간은 지난번 파일에 있던 가게를 그대로 둡니다.
+    if FAILED:
+        try:
+            with open(OUT, encoding="utf-8") as f:
+                prev = json.load(f).get("stores", [])
+        except (OSError, ValueError):
+            prev = []
+        have = {s["id"] for s in out}
+        kept = 0
+        for s in prev:
+            o = s.get("opened", "")
+            if s.get("id") not in have and any(a <= o < b for a, b in (r.split("~") for r in FAILED)):
+                out.append(s); kept += 1
+        if kept:
+            print("받지 못한 기간의 가게 %d곳은 지난번 자료를 유지합니다." % kept)
+
     out.sort(key=lambda s: s["opened"], reverse=True)
-    if FAILED and not rows:
+    if FAILED and not out:
         sys.exit("한 곳도 받지 못했습니다. 실패한 기간: " + ", ".join(FAILED))
     doc = {"updated": today.isoformat(), "since": since, "count": len(out), "missing": FAILED, "stores": out}
     with open(OUT, "w", encoding="utf-8") as f:
