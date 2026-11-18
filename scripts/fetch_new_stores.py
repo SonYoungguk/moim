@@ -62,11 +62,11 @@ def capacity(area):
     return 40
 
 
-def get(url, tries=5):
+def get(url, tries=3):
     """포털이 가끔 응답하지 않으므로, 연결 오류와 서버 오류는 잠시 쉬었다가 다시 시도합니다."""
     for n in range(1, tries + 1):
         try:
-            with urllib.request.urlopen(url, timeout=90) as r:
+            with urllib.request.urlopen(url, timeout=30) as r:
                 return r.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             if e.code < 500 or n == tries:
@@ -74,18 +74,24 @@ def get(url, tries=5):
             print("서버 오류 %d, %d초 뒤 다시 시도 (%d/%d)" % (e.code, 5 * n, n, tries))
         except (urllib.error.URLError, TimeoutError, OSError) as e:
             if n == tries:
-                sys.exit("공공데이터포털에 %d번 연결을 시도했지만 실패했습니다: %s" % (tries, e))
+                raise ConnectionError("공공데이터포털에 %d번 연결을 시도했지만 실패했습니다: %s" % (tries, e))
             print("연결 오류(%s), %d초 뒤 다시 시도 (%d/%d)" % (e, 5 * n, n, tries))
         time.sleep(5 * n)
 
 
-def fetch(key, since):
+PAGE = 30        # 한 번에 받는 개수. 포털이 큰 요청에서 자주 멈춰서 작게 나눕니다.
+MONTHS = 2       # 인허가일 기간도 이 개월 수씩 잘라서 요청합니다.
+
+
+def fetch_range(key, start, end):
+    """인허가일이 start 이상, end 미만인 강서구 일반음식점을 모두 받습니다."""
     rows, page = [], 1
     while True:
         q = {
-            "serviceKey": key, "pageNo": page, "numOfRows": 100, "returnType": "json",
+            "serviceKey": key, "pageNo": page, "numOfRows": PAGE, "returnType": "json",
             "cond[OPN_ATMY_GRP_CD::EQ]": GANGSEO,
-            "cond[LCPMT_YMD::GTE]": since,
+            "cond[LCPMT_YMD::GTE]": start,
+            "cond[LCPMT_YMD::LT]": end,
         }
         url = API + "?" + urllib.parse.urlencode(q)
         try:
@@ -111,11 +117,38 @@ def fetch(key, since):
             items = [items]
         rows += items
         total = int(body.get("totalCount") or 0)
-        print("page %d: %d / %d" % (page, len(rows), total))
         if not items or len(rows) >= total:
+            print("%s~%s: %d곳" % (start, end, len(rows)))
             return rows
         page += 1
-        time.sleep(0.3)
+        time.sleep(0.5)
+
+
+def add_months(d, n):
+    m = d.month - 1 + n
+    return d.replace(year=d.year + m // 12, month=m % 12 + 1, day=1)
+
+
+FAILED = []
+
+
+def fetch(key, since):
+    start = dt.datetime.strptime(since, "%Y%m%d").date()
+    end_all = dt.date.today() + dt.timedelta(days=1)
+    rows = []
+    while start < end_all:
+        end = min(add_months(start, MONTHS), end_all)
+        a, b = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+        try:
+            rows += fetch_range(key, a, b)
+        except (ConnectionError, urllib.error.HTTPError) as e:
+            # 이 기간만 건너뛰고, 받은 것은 저장합니다. 다음 실행에서 다시 받습니다.
+            print("%s~%s 기간은 받지 못했습니다: %s" % (a, b, e))
+            FAILED.append("%s~%s" % (a, b))
+        start = end
+        time.sleep(0.5)
+    print("모두 %d곳 받음" % len(rows))
+    return rows
 
 
 def main():
@@ -165,10 +198,14 @@ def main():
         out.append(s)
 
     out.sort(key=lambda s: s["opened"], reverse=True)
-    doc = {"updated": today.isoformat(), "since": since, "count": len(out), "stores": out}
+    if FAILED and not rows:
+        sys.exit("한 곳도 받지 못했습니다. 실패한 기간: " + ", ".join(FAILED))
+    doc = {"updated": today.isoformat(), "since": since, "count": len(out), "missing": FAILED, "stores": out}
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=1)
     print("명지 신규 음식점 %d곳 저장 (기준 %s 이후)" % (len(out), since))
+    if FAILED:
+        print("::warning::일부 기간을 받지 못했습니다(다음 실행 때 다시 받습니다): " + ", ".join(FAILED))
     if skipped:
         print("업태 때문에 뺀 곳:", json.dumps(skipped, ensure_ascii=False))
 
