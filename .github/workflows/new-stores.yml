@@ -1,0 +1,33 @@
+name: 명지 신규 음식점 갱신
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 21 * * 0"   # 매주 월요일 06:17 (한국 시간)
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyproj==3.6.1
+      - name: 공공데이터포털에서 받기
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python scripts/fetch_new_stores.py
+      - name: 바뀐 내용 저장
+        run: |
+          if git diff --quiet -- new-stores.json && git ls-files --error-unmatch new-stores.json >/dev/null 2>&1; then
+            echo "변경 없음"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add new-stores.json
+          git commit -m "Update Myeongji new restaurants"
+          git push

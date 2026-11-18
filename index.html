@@ -43,8 +43,9 @@ header h1{font-size:17px;margin:0;flex:1;letter-spacing:-.02em}
 .card h3{margin:0 0 2px;font-size:15px;display:flex;gap:6px;align-items:center}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 .meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}
-.meta .p-good{color:var(--good);font-weight:600}.meta .p-bad,.meta .p-none{color:var(--bad)}.meta .p-ok{color:var(--warn)}
+.meta .p-unknown{color:var(--muted)}.meta .p-good{color:var(--good);font-weight:600}.meta .p-bad,.meta .p-none{color:var(--bad)}.meta .p-ok{color:var(--warn)}
 .sub{color:var(--muted);font-size:12px;margin-top:2px;overflow-wrap:anywhere}
+.tag.new{color:var(--accent);border-color:var(--accent)}
 .tag{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted);font-weight:400}
 .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .acts a{font-size:12px;color:var(--accent)}
@@ -134,9 +135,10 @@ const CATS = [
 const CAT_COLOR = Object.fromEntries(CATS);
 const SIZES = [5,10,15,20,40];
 const sizeLabel = n => n >= 40 ? '40명 이상' : n + '명';
-const PARK = {good:'주차 원활', ok:'주차 보통', bad:'주차 어려움', none:'주차 불가'};
+const PARK = {good:'주차 원활', ok:'주차 보통', bad:'주차 어려움', none:'주차 불가', unknown:'주차 미확인'};
 const BUDGETS = [10000,15000,20000,30000,50000];
 const won = n => Number(n).toLocaleString('ko-KR') + '원';
+const priceText = s => s.price ? '인당 ' + won(s.price) : '가격 미확인';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = id => document.getElementById(id);
 
@@ -206,7 +208,7 @@ const SEED = [
 ].map(s => ({...s, tel:'', unverified:true}));
 
 let stores = load();
-const F = {q:'', size:0, park:'any', cats:new Set(), budget:0, room:false};
+const F = {q:'', size:0, park:'any', cats:new Set(), budget:0, room:false, fresh:false};
 let selected = null, editing = null, draft = null, draftMarker = null;
 
 function removedIds(){ try{ return JSON.parse(localStorage.getItem(KEY+'-del')) || []; }catch(e){ return []; } }
@@ -217,7 +219,7 @@ function load(){
   SEED.forEach(s => { if(!have.has(s.id) && !gone.has(s.id)) v.push({...s}); });
   return v;
 }
-function forget(id){ if(!SEED.some(s => s.id === id)) return; try{ localStorage.setItem(KEY+'-del', JSON.stringify([...new Set([...removedIds(), id])])); }catch(e){} }
+function forget(id){ if(!SEED.some(s => s.id === id) && !String(id).startsWith('lic-')) return; try{ localStorage.setItem(KEY+'-del', JSON.stringify([...new Set([...removedIds(), id])])); }catch(e){} }
 const hasPos = s => isFinite(s.lat) && isFinite(s.lng);
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(stores, (k,v) => k === 'geoFailed' ? undefined : v)); }catch(e){} }
 
@@ -252,7 +254,7 @@ function pinIcon(s, on){
 }
 function popupHtml(s){
   const q = encodeURIComponent(s.name.replace('[예시] ','') + (s.addr && !s.sample ? ' ' + s.addr : ''));
-  return `<div style="padding:10px 12px;font-size:13px;line-height:1.5;color:#1d2420"><b style="font-size:14px">${esc(s.name)}</b><br>${esc(s.cat)} · 인당 ${won(s.price)}<br>`
+  return `<div style="padding:10px 12px;font-size:13px;line-height:1.5;color:#1d2420"><b style="font-size:14px">${esc(s.name)}</b><br>${esc(s.cat)} · ${priceText(s)}<br>`
     + `단체 ${sizeLabel(s.cap)}${s.room?' · 룸 있음':''} · ${PARK[s.park]}`
     + (s.addr?`<br>${esc(s.addr)}`:'') + (s.tel?`<br>${esc(s.tel)}`:'')
     + (s.memo?`<br><span style="opacity:.75">${esc(s.memo)}</span>`:'')
@@ -266,8 +268,9 @@ function matches(s){
   if(F.park === 'good' && s.park !== 'good') return false;
   if(F.park === 'can' && !(s.park === 'good' || s.park === 'ok')) return false;
   if(F.cats.size && !F.cats.has(s.cat)) return false;
-  if(F.budget && s.price > F.budget) return false;
+  if(F.budget && !(s.price && s.price <= F.budget)) return false;
   if(F.room && !s.room) return false;
+  if(F.fresh && s.source !== 'license') return false;
   if(F.q){ const t = (s.name+' '+(s.memo||'')+' '+(s.addr||'')).toLowerCase(); if(!t.includes(F.q.toLowerCase())) return false; }
   return true;
 }
@@ -285,15 +288,17 @@ function renderFilters(){
   set('fCat', el => CATS.forEach(([c]) => chip(el,c,F.cats.has(c),()=>{F.cats.has(c)?F.cats.delete(c):F.cats.add(c);render();})));
   set('fBudget', el => { chip(el,'전체',F.budget===0,()=>{F.budget=0;render();});
     BUDGETS.forEach(n => chip(el, (n/10000)+'만원 이하', F.budget===n, ()=>{F.budget=n;render();})); });
-  set('fEtc', el => chip(el,'단체룸 있음',F.room,()=>{F.room=!F.room;render();}));
+  set('fEtc', el => { chip(el,'단체룸 있음',F.room,()=>{F.room=!F.room;render();});
+    if(stores.some(s => s.source === 'license')) chip(el,'최근 2년 신규',F.fresh,()=>{F.fresh=!F.fresh;render(true);}); });
 }
 
 /* ---------- 목록 + 마커 ---------- */
 function render(fit){
   renderFilters();
-  const shown = stores.filter(matches).sort((a,b) => a.price - b.price);
+  const shown = stores.filter(matches).sort((a,b) => (a.price || 1e9) - (b.price || 1e9));
   $('count').innerHTML = `<span>조건에 맞는 곳 <b>${shown.length}</b> / 전체 ${stores.length}</span>`
     + (stores.some(s=>s.unverified) ? '<span class="tag">미확인 = 가 보고 고쳐 주세요</span>' : '')
+    + (licensedInfo && stores.some(s => s.source === 'license') ? `<span class="tag">신규: ${esc(licensedInfo)}</span>` : '')
     + (geoNote ? `<span style="color:var(--bad)">${esc(geoNote)}</span>` : '');
 
   if(map){
@@ -321,8 +326,8 @@ function render(fit){
   shown.forEach(s => {
     const d = document.createElement('div');
     d.className = 'card' + (s.id===selected ? ' on' : ''); d.dataset.id = s.id;
-    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}${s.unverified?' <span class="tag">미확인</span>':''}${hasPos(s)?'':` <span class="tag">${s.geoFailed ? '지도 위치 없음' : '위치 찾는 중'}</span>`}</h3>
-      <div class="meta"><span>${esc(s.cat)}</span><span><b>인당 ${won(s.price)}</b></span>
+    d.innerHTML = `<h3><i class="dot" style="background:${CAT_COLOR[s.cat]||'#5b6470'}"></i>${esc(s.name)}${s.source==='license'?' <span class="tag new">신규</span>':''}${s.unverified?' <span class="tag">미확인</span>':''}${hasPos(s)?'':` <span class="tag">${s.geoFailed ? '지도 위치 없음' : '위치 찾는 중'}</span>`}</h3>
+      <div class="meta"><span>${esc(s.cat)}</span><span><b>${priceText(s)}</b></span>
       <span>단체 ${sizeLabel(s.cap)}${s.room?' · 룸':''}</span><span class="p-${s.park}">${PARK[s.park]}</span></div>
       ${s.addr?`<div class="sub">${esc(s.addr)}</div>`:''}${s.memo?`<div class="sub">${esc(s.memo)}</div>`:''}`;
     if(s.id === selected){
@@ -407,6 +412,8 @@ $('formPane').onsubmit = e => {
     room:$('fRoom').checked, tel:$('fTel').value.trim(), memo:$('fMemo').value.trim(),
     lat:draft.lat, lng:draft.lng
   };
+  const old = stores.find(t => t.id === s.id);
+  if(old && old.source) { s.source = old.source; s.opened = old.opened; }
   const i = stores.findIndex(t => t.id === s.id);
   if(i >= 0) stores[i] = s; else stores.push(s);
   selected = s.id; save(); closeForm(); render();
@@ -477,8 +484,27 @@ function locateMissing(tries){
   })();
 }
 
+/* ---------- 공공데이터 신규 음식점 ---------- */
+const normName = n => String(n || '').replace(/\s+/g,'').replace(/(본점|직영점|명지점|명지본점|부산명지점|명지직영점|오션시티점|오션시티직영점)$/,'');
+async function loadLicensed(){
+  let doc;
+  try{ const r = await fetch('new-stores.json', {cache:'no-cache'}); if(!r.ok) return; doc = await r.json(); }catch(e){ return; }
+  const have = new Set(stores.map(s => s.id)), gone = new Set(removedIds());
+  const names = new Set(stores.map(s => normName(s.name)));
+  let added = 0;
+  (doc.stores || []).forEach(s => {
+    if(!s || !s.id || have.has(s.id) || gone.has(s.id) || names.has(normName(s.name))) return;
+    stores.push({...s}); added++;
+  });
+  licensedInfo = `공공데이터 ${doc.updated || ''} 기준`;
+  if(added){ save(); if($('formPane').hidden) render(); locateMissing(); }
+  else render();
+}
+let licensedInfo = '';
+
 /* ---------- 네이버 지도 불러오기 ---------- */
 render();
+loadLicensed();
 (function loadNaver(){
   // 키 종류에 따라 파라미터 이름이 다르므로, 인증에 실패하면 다른 이름으로 한 번 더 시도합니다.
   let legacy = false; try{ legacy = sessionStorage.getItem('gs-legacy') === '1'; }catch(e){}
