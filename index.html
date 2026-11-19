@@ -159,8 +159,8 @@ const SEED = [
    addr:'부산 강서구 명지오션시티10로 140', memo:'중식. 넓은 테이블 배치로 단체 이용 소개. 주차·인원·가격 모두 추정.'},
   {id:'mj-first', name:'명지첫집 오션시티직영점', cat:'한식', cap:15, park:'ok', price:26000, room:true,
    addr:'부산 강서구 명지오션시티11로 74 오션타워 2층', memo:'보쌈정식. 개별룸, 지하주차. 후기상 인당 26,000원 안팎. 인원은 추정.'},
-  {id:'mj-yong', name:'용한우', cat:'고기·구이', cap:40, park:'ok', price:50000, room:true,
-   addr:'부산 강서구 명지국제6로232번길 11-1 1층', memo:'한우 등심·안심, 양념갈비. 룸(6~15인)과 대형 홀, 최대 65명가량 수용 후기. 주차와 인당 가격은 추정.'},
+  {id:'mj-yong', name:'용한우', cat:'고기·구이', cap:40, park:'good', price:50000, room:true,
+   addr:'부산 강서구 명지국제6로232번길 11-1 1층', memo:'한우 등심·안심, 양념갈비. 6~16인 룸, 최대 65명 대관 가능 소개. 매장 앞뒤 전용 주차 공간. 인당 가격은 추정.'},
   {id:'mj-geumok', name:'금옥갈비 명지점', cat:'고기·구이', cap:20, park:'ok', price:25000, room:true,
    addr:'부산 강서구 르노삼성대로 638-10 4층', memo:'돼지갈비·소갈비. 룸과 홀 함께 운영. 인원·주차·가격은 추정.'},
   {id:'mj-dwae', name:'돼장금 참숯양념돼지갈비', cat:'고기·구이', cap:20, park:'ok', price:20000, room:false,
@@ -216,6 +216,8 @@ function load(){
   let v = []; try{ const j = JSON.parse(localStorage.getItem(KEY)); if(Array.isArray(j)) v = j; }catch(e){}
   v = v.filter(s => !s.sample); v.forEach(s => { delete s.geoFailed; });
   const have = new Set(v.map(s => s.id)), gone = new Set(removedIds());
+  // 직접 고치지 않은 기본 가게는 최신 정보로 바꿉니다.
+  v = v.map(s => { const n = SEED.find(t => t.id === s.id); return n && !s.edited ? {...n, lat:s.lat, lng:s.lng} : s; });
   SEED.forEach(s => { if(!have.has(s.id) && !gone.has(s.id)) v.push({...s}); });
   return v;
 }
@@ -413,6 +415,7 @@ $('formPane').onsubmit = e => {
     lat:draft.lat, lng:draft.lng
   };
   const old = stores.find(t => t.id === s.id);
+  s.edited = true;
   if(old && old.source) { s.source = old.source; s.opened = old.opened; }
   const i = stores.findIndex(t => t.id === s.id);
   if(i >= 0) stores[i] = s; else stores.push(s);
@@ -496,6 +499,9 @@ async function loadLicensed(){
     if(!s || !s.id || have.has(s.id) || gone.has(s.id) || names.has(normName(s.name))) return;
     stores.push({...s}); added++;
   });
+  let notes = {};
+  try{ const r = await fetch('store-notes.json', {cache:'no-cache'}); if(r.ok) notes = await r.json(); }catch(e){}
+  stores.forEach(s => { const n = notes[s.id]; if(n && s.source === 'license' && !s.edited){ Object.assign(s, n); added = added || 1; } });
   licensedInfo = `공공데이터 ${doc.updated || ''} 기준`;
   if(added){ save(); if($('formPane').hidden) render(); locateMissing(); }
   else render();
